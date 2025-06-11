@@ -14,21 +14,32 @@ def generate_hex_centers(N, a): return [(a*(i+0.5*j), a*(math.sqrt(3)/2*j), 0.0)
 def build_heavy(template, centers): elems, coords = [], []; [[elems.append(e), coords.append([cx+dx, cy+dy, cz+dz])] for cx,cy,cz in centers for e, dx, dy, dz in template]; return elems, np.array(coords)
 def cap_edges(elems, coords):
     tree, pairs = KDTree(coords), KDTree(coords).query_pairs(r=BOND_CUTOFF); neigh = {i:set() for i in range(len(elems))}; [neigh[i].add(j) or neigh[j].add(i) for i,j in pairs]
-    amide = [(i,j) for i,j in pairs if {elems[i],elems[j]}=={"C","N"} and 1.3 < np.linalg.norm(coords[i]-coords[j]) < 1.5 and len(neigh[i if elems[i]=="C" else j]) <= 2]
+    amide = [(i,j) if elems[i]=="C" else (j,i) for i,j in pairs if {elems[i],elems[j]}=={"C","N"} and 1.3 < np.linalg.norm(coords[i]-coords[j]) < 1.5 and len(neigh[i if elems[i]=="C" else j]) == 2]
     termC, termN = [i for i in range(len(elems)) if elems[i]=="C" and i not in {c for c,n in amide} and len(neigh[i])==1], [i for i in range(len(elems)) if elems[i]=="N" and i not in {n for c,n in amide} and len(neigh[i])==1]
     new_e, new_c = list(elems), coords.tolist()
     for c,n in amide: 
-        v = coords[n]-coords[c]; v /= np.linalg.norm(v)
-        # Orient C=O more toward z-axis (60% z, 40% in-plane perpendicular)
-        # 50% chance of positive vs negative z direction
+        # Simple approach: place C=O primarily in z direction to avoid ring conflicts
         import random
         z_sign = 1.0 if random.random() < 0.5 else -1.0
-        p_xy = np.array([-v[1], v[0], 0.0])
+        # Mostly z-direction with small xy component
+        v_cn = coords[n]-coords[c]; v_cn /= np.linalg.norm(v_cn)
+        xy_perp = np.array([-v_cn[1], v_cn[0], 0.0])
+        xy_perp /= np.linalg.norm(xy_perp) if np.linalg.norm(xy_perp) > 0.01 else 1
+        o_dir = 0.2 * xy_perp + 0.8 * np.array([0.0, 0.0, z_sign])
+        o_dir /= np.linalg.norm(o_dir)
+        
+        # N-H direction: perpendicular to C-N in xy plane
+        v_cn = coords[n]-coords[c]; v_cn /= np.linalg.norm(v_cn)
+        h_perp = np.array([-v_cn[1], v_cn[0], 0.0])
+        h_perp /= np.linalg.norm(h_perp) if np.linalg.norm(h_perp) > 0.01 else 1
+        
+        new_e.extend(["O","H"]); new_c.extend([(coords[c]+o_dir*1.21).tolist(), (coords[n]+h_perp*1.01).tolist()])
+    for i in termC: 
+        j = next(iter(neigh[i])); v = (coords[i]-coords[j])/np.linalg.norm(coords[i]-coords[j])
+        # For aldehyde: C=O along v direction, C-H perpendicular to both v and z
+        p_xy = np.array([v[1], -v[0], 0.0])
         p_xy /= np.linalg.norm(p_xy) if np.linalg.norm(p_xy) > 0.01 else 1
-        p = 0.4 * p_xy + 0.6 * np.array([0.0, 0.0, z_sign])
-        p /= np.linalg.norm(p)
-        new_e.extend(["O","H"]); new_c.extend([(coords[c]+p*1.21).tolist(), (coords[n]-p*0.8*1.01).tolist()])
-    for i in termC: j = next(iter(neigh[i])); v = (coords[i]-coords[j])/np.linalg.norm(coords[i]-coords[j]); p = np.array([v[1], -v[0], 0.0])/np.linalg.norm(np.array([v[1], -v[0], 0.0])) if np.linalg.norm(np.array([v[1], -v[0], 0.0])) > 0.01 else np.array([0,0,1]); new_e.extend(["O","H"]); new_c.extend([(coords[i]+v*1.21).tolist(), (coords[i]+p*1.11).tolist()])
+        new_e.extend(["O","H"]); new_c.extend([(coords[i]+v*1.21).tolist(), (coords[i]+p_xy*1.11).tolist()])
     for i in termN: j = next(iter(neigh[i])); v = (coords[i]-coords[j])/np.linalg.norm(coords[i]-coords[j]); p = np.array([v[1], -v[0], 0.0])/np.linalg.norm(np.array([v[1], -v[0], 0.0])) if np.linalg.norm(np.array([v[1], -v[0], 0.0])) > 0.01 else np.array([1,0,0]); [new_e.append("H") or new_c.append((coords[i]+p*1.01*s).tolist()) for s in [1,-1]]
     return new_e, np.array(new_c), len(amide), len(termC)
 def write_counts_table(filename, n_target, amide_count, aldehyde_count, script_type): 

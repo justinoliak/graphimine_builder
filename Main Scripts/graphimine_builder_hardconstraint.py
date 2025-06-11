@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Generate graphimine flakes with a hard constraint: every benzene centre
-has at least two neighbours (no singly‑connected monomers).  The lattice is
+has at least two neighbours (no singly-connected monomers).  The lattice is
 optionally oversised so the cluster never runs into an artificial edge.
 
 Usage
@@ -10,7 +10,7 @@ python graphimine_builder_hardconstraint.py N_MONOMERS N_RUNS \
         [--template monomer_cc_nc.xyz] \
         [--lattice-buffer 3]
 
-* ``--lattice-buffer`` multiplies the linear lattice size.  A buffer of ≥ 3 is
+* --lattice-buffer multiplies the linear lattice size.  A buffer of >= 3 is
   usually sufficient to avoid edge effects even for highly elongated clusters.
 """
 
@@ -23,16 +23,16 @@ import numpy as np
 from scipy.spatial import cKDTree as KDTree
 
 # --------------------------------------------------
-# Constants (all in Å)
+# Constants (all in Angstrom)
 # --------------------------------------------------
-C_C_RING   = 1.39  # aromatic C–C
+C_C_RING   = 1.39  # aromatic C-C
 C_N_IMINE  = 1.28  # C=N double bond
-C_N_SINGLE = 1.41  # C–N single
-C_C_SINGLE = 1.48  # C–C single
-BOND_CUTOFF = 1.70  # generic heavy‑atom cutoff for KD‑tree bonding
+C_N_SINGLE = 1.41  # C-N single
+C_C_SINGLE = 1.48  # C-C single
+BOND_CUTOFF = 1.70  # generic heavy-atom cutoff for KD-tree bonding
 
-# Benzene‑centre spacing taken from crystallographic data, not summed bonds
-LATTICE_A  = 6.980
+# Benzene-centre spacing from summed bonds (matches other scripts)
+LATTICE_A  = C_C_RING + C_C_SINGLE + C_N_IMINE + C_N_SINGLE + C_C_RING  # = 7.35 Angstrom
 NEIGH_CUTOFF = LATTICE_A * 1.10  # search radius for centre neighbours
 
 # --------------------------------------------------
@@ -67,7 +67,7 @@ def load_monomer(path):
 # --------------------------------------------------
 
 def generate_hex_lattice(n_max, a=LATTICE_A):
-    """Axial‑coordinate honeycomb lattice centred on (0,0)."""
+    """Axial-coordinate honeycomb lattice centred on (0,0)."""
     sites = []
     for i in range(-n_max, n_max + 1):
         j_min = max(-n_max, -i - n_max)
@@ -84,13 +84,13 @@ def generate_hex_lattice(n_max, a=LATTICE_A):
 # --------------------------------------------------
 
 def _centre_kdtree(selected, all_centres):
-    """KD‑tree only over selected centre coordinates."""
+    """KD-tree only over selected centre coordinates."""
     pts = [all_centres[i] for i in selected]
     return KDTree(pts)
 
 
 def has_min_neighbours(selected, all_centres, min_deg=2):
-    """Return True iff **every** selected centre has ≥ ``min_deg`` neighbours."""
+    """Return True iff every selected centre has >= min_deg neighbours."""
     if not selected:
         return True
     kd = _centre_kdtree(selected, all_centres)
@@ -254,7 +254,7 @@ def metropolis_selection(n_target, all_centres, temp=1.0, n_steps=10_000):
     # Final hard check
     if has_min_neighbours(sel, all_centres):
         return sel
-    raise RuntimeError("Metropolis failed to converge to hard‑constraint cluster.")
+    raise RuntimeError("Metropolis failed to converge to hard-constraint cluster.")
 
 # --------------------------------------------------
 # Build full atom list & cap edges
@@ -277,7 +277,7 @@ def cap_edges(elems, coords):
         neighbours[i].add(j)
         neighbours[j].add(i)
 
-    # Identify true imine C=N pairs (≈1.28 Å)
+    # Identify true imine C=N pairs (approximately 1.28 Angstrom)
     imines = [(i, j) for i, j in pairs
               if {elems[i], elems[j]} == {"C", "N"}
               and abs(np.linalg.norm(coords[i] - coords[j]) - C_N_IMINE) < 0.07]
@@ -296,7 +296,7 @@ def cap_edges(elems, coords):
             c_idx, n_idx = n_idx, c_idx  # ensure c_idx is carbon
         u = (coords[n_idx] - coords[c_idx])
         u /= np.linalg.norm(u)
-        perp = np.array([u[1], -u[0], 0.2])  # slight out‑of‑plane tilt
+        perp = np.array([u[1], -u[0], 0.2])  # slight out-of-plane tilt
         new_elems.append("H")
         new_coords.append((coords[c_idx] + perp * 1.11).tolist())
 
@@ -312,7 +312,7 @@ def cap_edges(elems, coords):
             (coords[idx] + perp * 1.11).tolist(),
         ])
 
-    # –NH2 on terminal nitrogens
+    # NH2 on terminal nitrogens
     for idx in termN:
         j = next(iter(neighbours[idx]))
         v = coords[idx] - coords[j]
@@ -357,20 +357,20 @@ def log_counts(filename, n_target, imine, aldehyde, method):
 # --------------------------------------------------
 
 def main():
-    p = argparse.ArgumentParser(description="Graphimine flake generator (hard‑constraint version)")
+    p = argparse.ArgumentParser(description="Graphimine flake generator (hard-constraint version)")
     p.add_argument("n_monomers", type=int, help="target number of TABTCA monomers")
     p.add_argument("n_runs", type=int, help="how many independent flakes to generate")
     p.add_argument("--method", choices=["random", "growth", "metropolis"], default="growth",
-                   help="site‑selection strategy")
+                   help="site-selection strategy")
     p.add_argument("--template", default="monomer_cc_nc.xyz", help="XYZ of one monomer (heavy atoms only)")
-    p.add_argument("--lattice-buffer", type=int, default=3,
-                   help="linear oversising factor for honeycomb lattice")
+    p.add_argument("--lattice-buffer", type=int, default=10,
+                   help="linear oversizing factor for honeycomb lattice")
     args = p.parse_args()
 
     # Build oversized lattice
     n_max = int(math.ceil(math.sqrt(args.n_monomers))) * args.lattice_buffer
     all_centres = generate_hex_lattice(n_max)
-    print(f"Generated honeycomb lattice with {len(all_centres)} potential sites (buffer ×{args.lattice_buffer})")
+    print(f"Generated honeycomb lattice with {len(all_centres)} potential sites (buffer x{args.lattice_buffer})")
 
     template = load_monomer(args.template)
 
@@ -382,9 +382,9 @@ def main():
     select_sites = selectors[args.method]
 
     for run in range(1, args.n_runs + 1):
-        print(f"\nRun {run}/{args.n_runs}  – method: {args.method}")
+        print(f"\nRun {run}/{args.n_runs} - method: {args.method}")
         sel = select_sites(args.n_monomers, all_centres)
-        print(f"  Selected {len(sel)} monomer sites (all with ≥2 neighbours)")
+        print(f"  Selected {len(sel)} monomer sites (all with >=2 neighbours)")
 
         centres = [all_centres[i] for i in sel]
         conn_hist = analyse_centres(sel, all_centres)
@@ -396,9 +396,9 @@ def main():
 
         fname = f"graphimine_n{args.n_monomers}_run{run:03d}.xyz"
         write_xyz(fname, elems, coords,
-                  f"Graphimine flake • {args.n_monomers} monomers • all centres ≥2 links")
+                  f"Graphimine flake - {args.n_monomers} monomers - all centres >=2 links")
         log_counts(fname, args.n_monomers, n_imine, n_ald, args.method)
-        print(f"  Wrote {fname}  (atoms: {len(elems)})  FG counts – imine:{n_imine}, aldehyde:{n_ald}\n")
+        print(f"  Wrote {fname}  (atoms: {len(elems)})  FG counts - imine:{n_imine}, aldehyde:{n_ald}\n")
 
 
 if __name__ == "__main__":
