@@ -362,7 +362,7 @@ def main():
     p.add_argument("n_runs", type=int, help="how many independent flakes to generate")
     p.add_argument("--method", choices=["random", "growth", "metropolis"], default="growth",
                    help="site-selection strategy")
-    p.add_argument("--template", default="monomer_cc_nc.xyz", help="XYZ of one monomer (heavy atoms only)")
+    p.add_argument("--template", default="graphimine_monomer.xyz", help="XYZ of one monomer (heavy atoms only)")
     p.add_argument("--lattice-buffer", type=int, default=10,
                    help="linear oversizing factor for honeycomb lattice")
     args = p.parse_args()

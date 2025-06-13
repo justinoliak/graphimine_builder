@@ -22,7 +22,7 @@ def cap_edges(elems, coords):
 def write_counts_table(filename, n_target, imine_count, aldehyde_count, script_type): import os; write_header = not os.path.exists("functional_group_counts.txt"); f = open("functional_group_counts.txt", 'a'); f.write("Filename\tScript_Type\tN_Target\tImine_Count\tAldehyde_Count\tTotal\n" if write_header else ""); f.write(f"{filename}\t{script_type}\t{n_target}\t{imine_count}\t{aldehyde_count}\t{imine_count + aldehyde_count}\n"); f.close()
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(); parser.add_argument("N_target", type=int); parser.add_argument("--scale", type=float, default=0.8); args = parser.parse_args()
-    N_hex, template, a = math.ceil(args.N_target / args.scale), load_monomer("monomer_cc_nc.xyz"), C_C_RING + C_C_SINGLE + C_N_IMINE + C_N_SINGLE + C_C_RING
+    N_hex, template, a = math.ceil(args.N_target / args.scale), load_monomer("graphimine_monomer.xyz"), C_C_RING + C_C_SINGLE + C_N_IMINE + C_N_SINGLE + C_C_RING
     centers = [(x,y,z) for x,y,z in generate_hex_centers(N_hex, a) if x*x+y*y <= (a*args.N_target)**2]; elems, coords = build_heavy(template, centers); elems2, coords2, imine_count, aldehyde_count = cap_edges(elems, coords)
     filename = f"N={args.N_target}_graphimine.xyz"; write_xyz(filename, elems2, coords2, f"N_target={args.N_target} N_hex={N_hex} scale={args.scale}")
     write_counts_table(filename, args.N_target, imine_count, aldehyde_count, "circular"); print(f"N_target={args.N_target}, N_hex={N_hex}, scale={args.scale}, atoms={len(elems2)}, centers={len(centers)}"); print(f"Functional groups: {imine_count} imine, {aldehyde_count} aldehyde, {imine_count + aldehyde_count} total")
