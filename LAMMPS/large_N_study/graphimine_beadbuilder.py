@@ -2,13 +2,12 @@
 """
 Graphimine / Graphamide bead–spring sheet builder  —  **v1.4**
 ================================================================
-▪ **Copies flag**   `--copies N` replicates the reference flake N times.
-▪ **Auto‑scale copies**   If `--copies` omitted you may give `--target_beads`.
-  The script then sets copies ≈ target_beads / flake_size × (0.40/ϕ) so
-  bead count stays ~constant and high‑ϕ packing is easier.
+▪ **Monodisperse only**   `--G N` creates identical flakes with N generations.
+▪ **Fixed box size**   Box size = 5 × platelet diameter (2 × G × bond_length).
+▪ **Auto-scale flakes**   Number of flakes calculated to achieve target density ϕ.
+▪ **Manual override**   `--copies N` sets explicit number of flakes.
 ▪ **High-density packing**   Up to 100,000 placement attempts per flake with
-  multiple restarts (max 10). Maintains exact target density without box inflation.
-  Can achieve higher ϕ values through persistence.
+  multiple restarts (max 10). Prevents inter-flake bonding with proper cutoffs.
 ▪ **Molecule IDs** retained; cubic box by default; `--enforce2d` collapses z.
 """
 import math, random, sys, argparse
@@ -19,18 +18,13 @@ from scipy.spatial import cKDTree as KDTree
 
 SIGMA = 1.0                                  # bead diameter (reduced)
 HEX_CNT = lambda g: 3 * g * (g + 1) + 1      # beads in perfect hexagon with g shells
-g_from_N = lambda n: int(round((math.sqrt(12 * n - 3) - 3) / 6))
+platelet_diameter = lambda g, b: 2 * g * b   # diameter of platelet with g generations
 
 # -----------------------------------------------------------------------------
 # Geometry helpers
 # -----------------------------------------------------------------------------
 
-def generate_hex_flake(N: int, b: float) -> np.ndarray:
-    g = g_from_N(N)
-    N_exact = HEX_CNT(g)
-    if N_exact != N:
-        print(f"[info] N {N} adjusted → perfect hexagon {N_exact}", file=sys.stderr)
-        N = N_exact
+def generate_hex_flake(g: int, b: float) -> np.ndarray:
     a = b
     coords = []
     for n in range(-g, g + 1):
@@ -50,10 +44,10 @@ def bond_pairs(centres: np.ndarray, cut: float) -> List[Tuple[int, int]]:
 # Packing routine  (high-density with multiple restarts)
 # -----------------------------------------------------------------------------
 
-def pack_flakes(flakes: List[np.ndarray], phi: float, b_len: float, max_restarts=10):
+def pack_flakes(flakes: List[np.ndarray], phi: float, b_len: float, max_platelet_diameter: float, max_restarts=10):
     bead_vol = math.pi * SIGMA ** 3 / 6
     total_beads = sum(len(f) for f in flakes)
-    L = (total_beads * bead_vol / phi) ** (1 / 3)
+    L = 5.0 * max_platelet_diameter  # Box size = 5 × largest platelet diameter
 
     for restart in range(max_restarts):
         if restart > 0:
@@ -129,14 +123,10 @@ def write_lammps(path: Path, centres: np.ndarray, bonds: List[Tuple[int, int]], 
 
 def parse_cli():
     ap = argparse.ArgumentParser(description="Generate bead–spring graphimine sheets (v1.4)")
-    sel = ap.add_mutually_exclusive_group(required=True)
-    sel.add_argument("--N", type=int, help="monodisperse flake size (beads)")
-    sel.add_argument("--flory", type=float, metavar="p", help="Flory P(N)")
-
+    ap.add_argument("--G", type=int, required=True, help="flake generations (all flakes same size)")
     ap.add_argument("--phi", type=float, required=True, help="target volume fraction 0<ϕ<1")
     ap.add_argument("--b", type=float, default=1.0, help="bond length / σ (default 1.0)")
-    ap.add_argument("--copies", type=int, help="explicit flake copies (overrides --target_beads)")
-    ap.add_argument("--target_beads", type=int, default=700, help="auto‑scale copies so beads≈target*(0.40/ϕ)")
+    ap.add_argument("--copies", type=int, help="explicit flake copies (overrides auto-scaling)")
     ap.add_argument("--enforce2d", action="store_true", help="write zlo=zhi=0 (strict monolayer)")
     ap.add_argument("--output", type=str, default="graphimine.data")
     ap.add_argument("--seed", type=int, default=42)
@@ -152,32 +142,30 @@ if __name__ == "__main__":
     if not (0.0 < P.phi < 1.0):
         sys.exit("[error] --phi must be between 0 and 1")
 
-    # ---------------- flake list --------------------------------------------
-    flakes: List[np.ndarray] = []
-    if P.N is not None:
-        flake = generate_hex_flake(P.N, P.b)
-        if P.copies:
-            copies = P.copies
-        else:
-            copies = max(1, int(round(P.target_beads / len(flake) * 0.40 / P.phi)))
-        flakes.extend([flake] * copies)
+    # ---------------- flake generation --------------------------------------------
+    # All flakes have the same size (G generations)
+    flake = generate_hex_flake(P.G, P.b)
+    max_diameter = platelet_diameter(P.G, P.b)
+    L = 5.0 * max_diameter
+    
+    if P.copies:
+        copies = P.copies
     else:
-        p = P.flory
-        if not (0.0 < p < 1.0):
-            sys.exit("[error] Flory p must be 0 < p < 1")
+        # Calculate how many flakes fit in the box at target density
         bead_vol = math.pi * SIGMA ** 3 / 6
-        target_vol = P.target_beads * bead_vol * 0.40 / P.phi
-        current_vol = 0.0
-        while current_vol < target_vol:
-            N_geom = np.random.geometric(1 - p)
-            flake = generate_hex_flake(N_geom, P.b)
-            flakes.append(flake)
-            current_vol += len(flake) * bead_vol
-
+        box_vol = L ** 3
+        target_bead_vol = P.phi * box_vol
+        beads_per_flake = len(flake)
+        copies = max(1, int(target_bead_vol / (beads_per_flake * bead_vol)))
+    
+    flakes = [flake] * copies
+    print(f"[info] Monodisperse: G={P.G}, {copies} flakes, {len(flake)} beads each")
+    
     # ---------------- pack + write -----------------------------------------
-    centres, bonds, L, flake_sizes = pack_flakes(flakes, P.phi, P.b)
+    centres, bonds, L, flake_sizes = pack_flakes(flakes, P.phi, P.b, max_diameter)
     write_lammps(Path(P.output), centres, bonds, L, P.enforce2d, flake_sizes)
 
     phi_actual = (math.pi * SIGMA ** 3 / 6 * len(centres)) / L ** 3
     status = "OK" if abs(phi_actual - P.phi) / P.phi < 0.02 else "WARN"
     print(f"[done] Wrote {P.output} — {len(centres)} beads, φ_actual = {phi_actual:.3f} ({status})")
+    print(f"[info] Box size: {L:.2f}σ (5 × max platelet diameter {max_diameter:.2f}σ)")
