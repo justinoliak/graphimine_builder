@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
-Graphimine / Graphamide bead–spring sheet builder  —  **v1.4**
-================================================================
+Layered Graphimine Builder  —  **v1.5**
+========================================
 ▪ **Monodisperse only**   `--G N` creates identical flakes with N generations.
-▪ **Fixed box size**   Box size = 5 × platelet diameter (2 × G × bond_length).
+▪ **Fixed box size**   Box size = 5 × platelet diameter (2×G+1).
+▪ **Layered packing**   Z-layers at 1.06σ intervals with random xy placement.
 ▪ **Auto-scale flakes**   Number of flakes calculated to achieve target density ϕ.
 ▪ **Manual override**   `--copies N` sets explicit number of flakes.
-▪ **High-density packing**   Up to 100,000 placement attempts per flake with
-  multiple restarts (max 10). Prevents inter-flake bonding with proper cutoffs.
+▪ **High-density packing**   Pack each layer before moving to next z-level.
 ▪ **Molecule IDs** retained; cubic box by default; `--enforce2d` collapses z.
 """
 import math, random, sys, argparse
@@ -41,7 +41,7 @@ def bond_pairs(centres: np.ndarray, cut: float) -> List[Tuple[int, int]]:
     return [tuple(sorted(p)) for p in kd.query_pairs(cut)]
 
 # -----------------------------------------------------------------------------
-# Packing routine  (high-density with multiple restarts)
+# Layered packing routine
 # -----------------------------------------------------------------------------
 
 def pack_flakes_layered(flakes: List[np.ndarray], phi: float, b_len: float, max_platelet_diameter: float, max_restarts=10):
@@ -81,7 +81,7 @@ def pack_flakes_layered(flakes: List[np.ndarray], phi: float, b_len: float, max_
                 placed = False
                 
                 # Try random xy positions at this fixed z
-                for attempt in range(10000):  # Reduced attempts per flake in layer
+                for _ in range(10000):  # Reduced attempts per flake in layer
                     dx, dy = (random.uniform(-L / 2, L / 2) for _ in range(2))
                     trial = flake + np.array([dx, dy, z])
                     
@@ -125,7 +125,7 @@ def pack_flakes_layered(flakes: List[np.ndarray], phi: float, b_len: float, max_
 def write_lammps(path: Path, centres: np.ndarray, bonds: List[Tuple[int, int]], L: float, enforce2d: bool, flake_sizes: List[int]):
     zlo, zhi = (0.0, 0.0) if enforce2d else (-L / 2, L / 2)
     with path.open("w") as f:
-        f.write(f"Graphimine – {len(centres)} atoms, {len(bonds)} bonds\n\n")
+        f.write(f"Layered Graphimine – {len(centres)} atoms, {len(bonds)} bonds\n\n")
         f.write(f"{len(centres)} atoms\n{len(bonds)} bonds\n\n")
         f.write("1 atom types\n1 bond types\n\n")
         f.write(f"{-L / 2:.6f} {L / 2:.6f} xlo xhi\n")
@@ -150,13 +150,13 @@ def write_lammps(path: Path, centres: np.ndarray, bonds: List[Tuple[int, int]], 
 # -----------------------------------------------------------------------------
 
 def parse_cli():
-    ap = argparse.ArgumentParser(description="Generate bead–spring graphimine sheets (v1.4)")
+    ap = argparse.ArgumentParser(description="Generate layered bead–spring graphimine sheets (v1.5)")
     ap.add_argument("--G", type=int, required=True, help="flake generations (all flakes same size)")
     ap.add_argument("--phi", type=float, required=True, help="target volume fraction 0<ϕ<1")
     ap.add_argument("--b", type=float, default=1.0, help="bond length / σ (default 1.0)")
     ap.add_argument("--copies", type=int, help="explicit flake copies (overrides auto-scaling)")
     ap.add_argument("--enforce2d", action="store_true", help="write zlo=zhi=0 (strict monolayer)")
-    ap.add_argument("--output", type=str, default="graphimine.data")
+    ap.add_argument("--output", type=str, default="layered_graphimine.data")
     ap.add_argument("--seed", type=int, default=42)
     return ap.parse_args()
 
