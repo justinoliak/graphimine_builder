@@ -1,0 +1,32 @@
+# __DATAFILE__ will be replaced by the bash / Python launcher
+units lj
+atom_style bond
+read_data __DATAFILE__
+
+# shape-only baseline → no LJ well
+pair_style lj/cut 1.12246          # cut at WCA distance
+pair_coeff 1 1 1.0 1.0 1.12246     # depth (ε) can stay 1; tail is cut off
+
+bond_style harmonic
+bond_coeff 1 100.0 1.0               # softer spring for minimization
+
+neighbor 1.0 bin
+neigh_modify every 1 delay 0 check yes
+
+# Relax geometry first
+minimize 1e-6 1e-8 1000 10000
+# Restore the target spring constant
+bond_coeff 1 500.0 1.0
+
+fix intg all nve
+fix lang all langevin 1.0 1.0 1.0 49281
+
+timestep 0.005
+thermo 10000
+thermo_style custom step temp pe ke etotal press
+
+dump trj all custom 10000 traj_phi__PHI___N__N__.lammpstrj id mol type x y z ix iy iz
+dump_modify trj sort id
+
+run 5000000
+write_data final_phi__PHI___N__N__.data

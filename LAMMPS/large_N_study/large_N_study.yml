@@ -1,0 +1,31 @@
+# Large N graphimine study – two large platelet sizes, cubic box, shape-only interactions
+grid:
+  - N: 144         # beads per flake  (G = 6-7)
+    copies: 50     # ~7200 beads total
+    tag: N144
+  - N: 256         # beads per flake  (G = 9)
+    copies: 50     # ~12800 beads total  
+    tag: N256
+
+phi_list:          # concentration sweep to find nematic transition
+  - 0.05
+  - 0.10
+  - 0.15
+  - 0.20
+  - 0.25
+  - 0.30
+  - 0.35
+  - 0.40
+  - 0.45
+  - 0.50
+  - 0.55
+  - 0.60
+  - 0.65
+
+replicas: 3        # 3 runs per φ value
+
+bond_len: 1.0      # centre-to-centre spacing  b / σ
+epsilon: 0.0       # LJ attraction strength (shape-only)
+seed_base: 49281   # different φ,rep → seed = seed_base + int(φ*1e5) + rep*1000
+out_prefix: large  # e.g. large_N144_phi0.35_rep2.data
+enforce2d: false   # keep full 3-D cubic box
