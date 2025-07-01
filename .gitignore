@@ -18,3 +18,34 @@ __pycache__/
 # IDE files
 .vscode/
 .idea/
+
+# Exclude all untracked directories and files except specific ones
+Maestro/
+Plots/
+z_misc/
+"avogadro relaxed g2.cml"
+graphimine.cdxml
+
+# Exclude XYZ Builder scripts data files
+"XYZ Builder scripts/README.md"
+"XYZ Builder scripts/amide_group_counts.txt"
+"XYZ Builder scripts/functional_group_analysis.png"
+"XYZ Builder scripts/functional_group_counts.txt"
+"XYZ Builder scripts/imine_ald_counts.txt"
+"XYZ Builder scripts/imine_structures_G1-150/"
+
+# Exclude LAMMPS generated files
+LAMMPS/large_N_study/hexlattice_*.data
+LAMMPS/large_N_study/lattice_centers_*.data
+LAMMPS/large_N_study/run_*.in
+LAMMPS/large_N_study/script_dir_test.data
+LAMMPS/large_N_study/test_lattice.data
+LAMMPS/run_*.in
+
+# Exclude old/deleted file remnants that show as staged deletions
+"Main Scripts/"
+"LAMMPS/large_N_study/README.md"
+"LAMMPS/large_N_study/graphimine.data"
+"LAMMPS/large_N_study/graphimine_G4.data"
+"LAMMPS/large_N_study/graphimine_beadbuilder.py"
+"LAMMPS/large_N_study/layered_graphimine_builder.py"
