@@ -1,0 +1,176 @@
+
+read_data   structure.data
+Reading data file ...
+  orthogonal box = (-27.521537 -27.521537 -27.521537) to (27.521537 27.521537 27.521537)
+  1 by 1 by 1 MPI processor grid
+WARNING: Atom style in data file id mol type x y z differs from currently defined atom style molecular (src/src/read_data.cpp:706)
+  reading atoms ...
+  31850 atoms
+  scanning bonds ...
+  3 = max bonds/atom
+  orthogonal box = (-27.521537 -27.521537 -27.521537) to (27.521537 27.521537 27.521537)
+  1 by 1 by 1 MPI processor grid
+  reading bonds ...
+  84000 bonds
+Finding 1-2 1-3 1-4 neighbors ...
+  special bond factors lj:    0        0        0       
+  special bond factors coul:  0        0        0       
+     6 = max # of 1-2 neighbors
+    30 = max # of 1-3 neighbors
+   180 = max # of 1-4 neighbors
+    36 = max # of special neighbors
+  special bonds CPU = 0.045 seconds
+  read_data CPU = 0.249 seconds
+mass        * 1.0
+
+# Communication for large systems
+comm_modify cutoff 3.0
+
+# WCA potential
+pair_style      lj/cut 1.12246
+pair_modify     shift yes
+pair_coeff      * * 1.0 1.0 1.12246
+
+neighbor     1.0 bin
+neigh_modify every 1 delay 0 check yes
+
+# Strong harmonic bonds for rigidity
+bond_style   harmonic
+bond_coeff   * 4225.0 1.0
+
+# Langevin thermostat + NVE integration
+fix     brown all langevin 1.0 1.0 1.0 58291
+fix     int   all nve
+timestep 0.002
+
+# Minimal thermo output
+thermo_style custom step temp pe ke etotal press
+thermo       1000
+
+# Short minimization for test
+min_style    cg
+minimize     1.0e-4 1.0e-6  1000 5000
+
+CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE
+
+Your simulation uses code contributions which should be cited:
+
+- Type Label Framework: https://doi.org/10.1021/acs.jpcb.3c08419
+
+@Article{Gissinger24,
+ author = {Jacob R. Gissinger, Ilia Nikiforov, Yaser Afshar, Brendon Waters, Moon-ki Choi, Daniel S. Karls, Alexander Stukowski, Wonpil Im, Hendrik Heinz, Axel Kohlmeyer, and Ellad B. Tadmor},
+ title = {Type Label Framework for Bonded Force Fields in LAMMPS},
+ journal = {J. Phys. Chem. B},
+ year =    2024,
+ volume =  128,
+ number =  13,
+ pages =   {3282–-3297}
+}
+
+CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE
+
+Generated 0 of 0 mixed pair_coeff terms from geometric mixing rule
+Neighbor list info ...
+  update: every = 1 steps, delay = 0 steps, check = yes
+  max neighbors/atom: 2000, page size: 100000
+  master list distance cutoff = 2.12246
+  ghost atom cutoff = 3
+  binsize = 1.06123, bins = 52 52 52
+  1 neighbor lists, perpetual/occasional/extra = 1 0 0
+  (1) pair lj/cut, perpetual
+      attributes: half, newton on
+      pair build: half/bin/newton
+      stencil: half/bin/3d
+      bin: standard
+Per MPI rank memory allocation (min/avg/max) = 30.36 | 30.36 | 30.36 Mbytes
+   Step          Temp          PotEng         KinEng         TotEng         Press     
+         0   0              15533315       0              15533315       11866840     
+       106   0              1.9978404      0              1.9978404      0.9972316    
+Loop time of 0.38967 on 1 procs for 106 steps with 31850 atoms
+
+97.1% CPU use with 1 MPI tasks x no OpenMP threads
+
+Minimization stats:
+  Stopping criterion = energy tolerance
+  Energy initial, next-to-last, final = 
+      15533314.5902673   1.99785071556186   1.99784039284507
+  Force two-norm initial, final = 3.3284265e+12 38244.481
+  Force max component initial, final = 1.7980214e+11 10241.906
+  Final line search alpha, max atom move = 8.1084959e-06 0.083046455
+  Iterations, force evaluations = 106 229
+
+MPI task timing breakdown:
+Section |  min time  |  avg time  |  max time  |%varavg| %total
+---------------------------------------------------------------
+Pair    | 0.07316    | 0.07316    | 0.07316    |   0.0 | 18.77
+Bond    | 0.096365   | 0.096365   | 0.096365   |   0.0 | 24.73
+Neigh   | 0.1069     | 0.1069     | 0.1069     |   0.0 | 27.43
+Comm    | 0.014487   | 0.014487   | 0.014487   |   0.0 |  3.72
+Output  | 0          | 0          | 0          |   0.0 |  0.00
+Modify  | 0          | 0          | 0          |   0.0 |  0.00
+Other   |            | 0.09876    |            |       | 25.34
+
+Nlocal:          31850 ave       31850 max       31850 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+Nghost:          14382 ave       14382 max       14382 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+Neighs:          83915 ave       83915 max       83915 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+
+Total # of neighbors = 83915
+Ave neighs/atom = 2.6346939
+Ave special neighs/atom = 26.175824
+Neighbor list builds = 9
+Dangerous builds = 0
+
+reset_timestep 0
+
+# Trajectory output
+dump         traj all custom 1000 sim.lammpstrj id mol type x y z
+dump_modify  traj sort id
+
+# Short test run
+run     5000
+Generated 0 of 0 mixed pair_coeff terms from geometric mixing rule
+Per MPI rank memory allocation (min/avg/max) = 26.98 | 26.98 | 26.98 Mbytes
+   Step          Temp          PotEng         KinEng         TotEng         Press     
+         0   0              1.9978404      0              1.9978404      0.9972316    
+      1000   0.96097566     1.2018234      1.4414182      2.6432416     -0.10581949   
+      2000   0.99444043     1.2484603      1.4916138      2.7400741     -0.022189639  
+      3000   1.0026995      1.2600014      1.504002       2.7640034      0.087039181  
+      4000   1.0031225      1.2577708      1.5046365      2.7624073      0.013871283  
+      5000   0.9968597      1.2592099      1.4952426      2.7544525      0.019036584  
+Loop time of 7.95512 on 1 procs for 5000 steps with 31850 atoms
+
+Performance: 108609.345 tau/day, 628.526 timesteps/s, 20.019 Matom-step/s
+98.4% CPU use with 1 MPI tasks x no OpenMP threads
+
+MPI task timing breakdown:
+Section |  min time  |  avg time  |  max time  |%varavg| %total
+---------------------------------------------------------------
+Pair    | 1.0409     | 1.0409     | 1.0409     |   0.0 | 13.08
+Bond    | 1.7218     | 1.7218     | 1.7218     |   0.0 | 21.64
+Neigh   | 1.4465     | 1.4465     | 1.4465     |   0.0 | 18.18
+Comm    | 0.27257    | 0.27257    | 0.27257    |   0.0 |  3.43
+Output  | 0.084279   | 0.084279   | 0.084279   |   0.0 |  1.06
+Modify  | 3.1898     | 3.1898     | 3.1898     |   0.0 | 40.10
+Other   |            | 0.1993     |            |       |  2.51
+
+Nlocal:          31850 ave       31850 max       31850 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+Nghost:          13285 ave       13285 max       13285 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+Neighs:          38108 ave       38108 max       38108 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+
+Total # of neighbors = 38108
+Ave neighs/atom = 1.1964835
+Ave special neighs/atom = 26.175824
+Neighbor list builds = 114
+Dangerous builds = 0
+
+# Write final configuration
+write_data  sim_final.data
+System init for write_data ...
+Generated 0 of 0 mixed pair_coeff terms from geometric mixing rule
+Total wall time: 0:00:08

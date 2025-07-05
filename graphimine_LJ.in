@@ -1,0 +1,72 @@
+# ==========================================================
+#  graphimine_LJ.in
+#  Soft-sphere (A/r^12) + harmonic bonds, LJ units
+# ==========================================================
+
+
+# 0. User controls
+
+variable datafile  string  {datafile}              # coordinates & Bonds
+variable Ttarget   equal   {temperature}           # k_BT / ε
+variable gamma     equal   {gamma}                 # Langevin damping τ_damp
+variable seed      equal   {seed}
+variable dt        equal   {timestep}              # τ
+variable t_min     equal   {min_steps}             # minimisation iters cap
+variable t_run     equal   {run_steps}             # MD steps
+variable dumpfreq  equal   {dump_freq}
+variable out       string  {output_prefix}         # prefix for outputs
+
+
+# 1. Basic setup
+
+units       lj
+atom_style  molecular
+boundary    p p p
+
+read_data   ${datafile}
+mass        * 1.0
+
+
+# 2. Non-bonded: WCA potential
+
+pair_style      lj/cut 1.12246          # WCA = purely repulsive
+pair_modify     shift yes
+pair_coeff      * * 1.0 1.0 1.12246
+
+# --> Updated neighbour settings
+neighbor     1.0 bin
+neigh_modify every 1 delay 0 check yes
+
+
+# 3. Bonded: harmonic springs  U = k (r − r0)^2
+
+bond_style   harmonic
+bond_coeff   * {bond_strength} 1.0                # k = bond_strength, r0 = 1.0
+
+
+# 4. Integration & thermostat
+
+fix     brown all langevin ${Ttarget} ${Ttarget} ${gamma} ${seed}
+fix     int   all nve
+timestep ${dt}
+
+
+# 5. I/O and monitoring
+
+thermo_style custom step temp pe ke etotal press
+thermo       ${dumpfreq}
+
+
+# 6. Minimisation, then BD run
+
+min_style    cg
+minimize     1.0e-4 1.0e-6  5000 ${t_min}
+
+reset_timestep 0
+
+dump         traj all custom ${dumpfreq} ${out}.lammpstrj id mol type x y z
+dump_modify  traj sort id
+
+run     ${t_run}
+
+write_data  ${out}_final.lmp

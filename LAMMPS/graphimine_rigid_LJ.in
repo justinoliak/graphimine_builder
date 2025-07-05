@@ -1,0 +1,82 @@
+# =====================================================================
+#  graphimine_rigid_LJ.in
+#  Rigid platelets + Langevin thermostat, LJ units
+# =====================================================================
+
+############################
+# 0.  User-set parameters  #
+############################
+variable datafile   string  {datafile}        # coordinate / topology file
+variable Ttarget    equal   {temperature}     # k_B T / ε
+variable gamma      equal   {gamma}           # Langevin damping time (τ)
+variable seed       equal   {seed}            # RNG seed
+variable dt         equal   {timestep}        # timestep in τ
+variable t_min      equal   {min_steps}       # max CG minimisation iters
+variable t_run      equal   {run_steps}       # production MD steps
+variable dumpfreq   equal   {dump_freq}       # trajectory output interval
+variable out        string  {output_prefix}  # prefix for output files
+variable G_value    equal   {G}               # generation number for cutoff calculation
+
+##################
+# 1.  Basic set-up
+##################
+units       lj
+atom_style  molecular
+boundary    p p p
+
+read_data   ${datafile}
+mass        * 1.0                            # every bead has σ=1, ε=1, m=1
+
+# ----- group all platelet atoms (adjust the rule if needed) ----------
+group plates type 1                          # or: group plates molecule > 0
+
+##########################
+# 2.  Non-bonded (WCA)   #
+##########################
+pair_style      lj/cut 1.12246     # WCA = LJ cut at 2^(1/6) σ
+pair_modify     shift yes
+pair_coeff      * * 1.0 1.0 1.12246
+
+neighbor        1.0 bin
+neigh_modify    every 1 delay 0 check yes
+
+# Automatic communication cutoff based on G value
+variable comm_cutoff equal (2*v_G_value+1)*0.6
+comm_modify cutoff ${comm_cutoff}
+
+##########################################
+# 3.  Bonded terms (ignored once rigid)  #
+##########################################
+bond_style   harmonic
+bond_coeff   * 1000.0 1.0            # bond strength (not used by rigid bodies)
+
+############################################
+# 4.  Integration & Langevin thermostat    #
+############################################
+# fix rigid integrates each molecule as an undeformable body AND adds Langevin
+fix  rig plates rigid/small molecule langevin ${Ttarget} ${Ttarget} ${gamma} ${seed}
+
+# give rigid bodies initial momenta and rotations
+velocity plates create ${Ttarget} ${seed} mom yes rot yes dist gaussian
+
+timestep ${dt}
+
+################################
+# 5.  Output & progress reports
+################################
+thermo_style custom step temp etotal press
+thermo       ${dumpfreq}
+
+dump         traj all custom ${dumpfreq} ${out}.lammpstrj id mol type x y z
+dump_modify  traj sort id
+
+############################
+# 6.  Minimisation + run
+############################
+min_style   cg
+minimize    1.0e-4 1.0e-6  5000 ${t_min}
+
+reset_timestep 0
+run  ${t_run}
+
+write_data  ${out}_final.lmp

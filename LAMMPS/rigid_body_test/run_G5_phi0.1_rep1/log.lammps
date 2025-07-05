@@ -1,0 +1,7 @@
+LAMMPS (29 Aug 2024 - Update 1)
+# Rigid body platelets
+units       lj
+atom_style  molecular
+boundary    p p p
+
+log sim.log

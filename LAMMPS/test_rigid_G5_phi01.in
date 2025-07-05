@@ -1,0 +1,80 @@
+# =====================================================================
+#  Test rigid platelets G5 phi=0.1
+# =====================================================================
+
+############################
+# 0.  User-set parameters  #
+############################
+variable datafile   string  test_G5_phi01.data  # coordinate / topology file
+variable Ttarget    equal   1.0                 # k_B T / ε
+variable gamma      equal   1.0                 # Langevin damping time (τ)
+variable seed       equal   12345               # RNG seed
+variable dt         equal   0.005               # timestep in τ
+variable t_min      equal   5000                # max CG minimisation iters
+variable t_run      equal   20000               # production MD steps (test)
+variable dumpfreq   equal   1000                # trajectory output interval
+variable out        string  rigid_test          # prefix for output files
+
+##################
+# 1.  Basic set-up
+##################
+units       lj
+atom_style  molecular
+boundary    p p p
+
+read_data   ${datafile}
+mass        * 1.0                            # every bead has σ=1, ε=1, m=1
+
+# ----- group all platelet atoms (adjust the rule if needed) ----------
+group plates type 1                          # or: group plates molecule > 0
+
+##########################
+# 2.  Non-bonded (WCA)   #
+##########################
+pair_style      lj/cut 1.12246     # WCA = LJ cut at 2^(1/6) σ
+pair_modify     shift yes
+pair_coeff      * * 1.0 1.0 1.12246
+
+neighbor        1.0 bin
+neigh_modify    every 1 delay 0 check yes
+
+# Fix communication cutoff for rigid bodies
+comm_modify cutoff 6.0
+
+##########################################
+# 3.  Bonded terms (ignored once rigid)  #
+##########################################
+bond_style   harmonic
+bond_coeff   * 1000.0 1.0            # bond strength (not used by rigid bodies)
+
+############################################
+# 4.  Integration & Langevin thermostat    #
+############################################
+# fix rigid integrates each molecule as an undeformable body AND adds Langevin
+fix  rig plates rigid/small molecule langevin ${Ttarget} ${Ttarget} ${gamma} ${seed}
+
+# give rigid bodies initial momenta and rotations
+velocity plates create ${Ttarget} ${seed} mom yes rot yes dist gaussian
+
+timestep ${dt}
+
+################################
+# 5.  Output & progress reports
+################################
+thermo_style custom step temp etotal press
+thermo       ${dumpfreq}
+
+############################
+# 6.  Minimisation + run
+############################
+min_style   cg
+minimize    1.0e-4 1.0e-6  5000 ${t_min}
+
+reset_timestep 0
+
+dump         traj all custom ${dumpfreq} ${out}.lammpstrj id mol type x y z
+dump_modify  traj sort id
+
+run  ${t_run}
+
+write_data  ${out}_final.data

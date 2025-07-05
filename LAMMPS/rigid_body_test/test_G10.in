@@ -1,0 +1,40 @@
+# Test rigid body dynamics with communication cutoff scaling
+read_data test_G10.data
+
+# Mass
+mass * 1.0
+
+# Create rigid bodies
+group plates type 1
+fix rig plates rigid/small molecule
+
+# Communication cutoff that scales with G
+variable comm_cutoff equal (2*10+1)*0.6
+comm_modify cutoff ${comm_cutoff}
+
+# WCA potential
+pair_style lj/cut 1.12246
+pair_modify shift yes
+pair_coeff * * 1.0 1.0 1.12246
+
+neighbor 1.0 bin
+neigh_modify every 1 delay 0 check yes
+
+# Bond style (for structure, not used in dynamics)
+bond_style harmonic
+bond_coeff * 1.0 1.0
+
+# Rigid body thermostat
+fix brown plates langevin 1.0 1.0 1.0 12345
+timestep 0.005
+
+# Minimal output
+thermo_style custom step temp pe ke etotal press
+thermo 10
+
+# Very short minimization
+min_style cg
+minimize 1.0e-4 1.0e-6 100 1000
+
+# Very short run to test
+run 10

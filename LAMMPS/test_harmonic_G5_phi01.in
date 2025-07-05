@@ -1,0 +1,45 @@
+# Test harmonic bonds approach using graphimine_LJ.in template
+units       lj
+atom_style  molecular
+boundary    p p p
+
+read_data   test_G5_phi01.data
+mass        * 1.0
+
+# Non-bonded: WCA potential
+pair_style      lj/cut 1.12246          # WCA = purely repulsive
+pair_modify     shift yes
+pair_coeff      * * 1.0 1.0 1.12246
+
+# Updated neighbour settings
+neighbor     1.0 bin
+neigh_modify every 1 delay 0 check yes
+
+# Communication for large systems
+comm_modify cutoff 3.0
+
+# Bonded: harmonic springs  U = k (r − r0)^2
+bond_style   harmonic
+bond_coeff   * 4225.0 1.0                      # k = 4225 (C=N imine bonds), r0 = 1.0
+
+# Integration & thermostat
+fix     brown all langevin 1.0 1.0 1.0 12345
+fix     int   all nve
+timestep 0.002
+
+# I/O and monitoring
+thermo_style custom step temp pe ke etotal press
+thermo       1000
+
+# Minimisation, then BD run
+min_style    cg
+minimize     1.0e-4 1.0e-6  5000 50000
+
+reset_timestep 0
+
+dump         traj all custom 1000 harmonic_test.lammpstrj id mol type x y z
+dump_modify  traj sort id
+
+run     20000
+
+write_data  harmonic_test_final.data
